@@ -50,10 +50,13 @@ resource "helm_release" "reducto" {
           cloud.google.com/backend-config: '{"ports": {"80":"${local.backend_config_name}"}}'
     EOT
     ,
+    yamlencode({
+      ingress = merge(
+        { enabled = !var.enable_global_access },
+        var.reducto_host != "" ? { host = var.reducto_host } : {},
+      )
+    }),
     <<-EOT
-    ingress:
-      enabled: ${!var.enable_global_access}
-      host: ${var.reducto_host}
     env:
       GCP_PROJECT_ID: ${var.project_id}
       GCP_REGION: ${var.region}
