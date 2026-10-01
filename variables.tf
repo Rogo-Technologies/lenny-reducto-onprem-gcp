@@ -17,6 +17,12 @@ variable "region" {
   default     = "us-west1"
 }
 
+variable "vertex_ai_region" {
+  type        = string
+  description = "The region Reducto will use for Vertex AI. When omitted, uses `global` endpoint"
+  default     = ""
+}
+
 variable "network_name" {
   type        = string
   description = "The name of the network to create"

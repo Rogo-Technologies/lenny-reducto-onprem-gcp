@@ -59,7 +59,7 @@ resource "helm_release" "reducto" {
     <<-EOT
     env:
       GCP_PROJECT_ID: ${var.project_id}
-      GCP_REGION: ${var.region}
+      GCP_REGION: ${var.vertex_ai_region}
       GCP_API_KEY: ${google_apikeys_key.vision.key_string}
       GCP_ACCESS_KEY_ID: ${google_storage_hmac_key.s3_compatible_key.access_id}
       GCP_SECRET_ACCESS_KEY: ${google_storage_hmac_key.s3_compatible_key.secret}
