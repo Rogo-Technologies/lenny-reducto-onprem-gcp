@@ -185,3 +185,9 @@ variable "datadog_api_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "dns_cache" {
+  type        = bool
+  description = "Enable the GKE NodeLocal DNSCache addon. Turning it on for an existing cluster recreates every node."
+  default     = false
+}
