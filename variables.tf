@@ -227,3 +227,9 @@ variable "enable_global_access" {
   type        = bool
   default     = false
 }
+
+variable "dns_cache" {
+  type        = bool
+  description = "Enable the GKE NodeLocal DNSCache addon. Turning it on for an existing cluster recreates every node."
+  default     = false
+}

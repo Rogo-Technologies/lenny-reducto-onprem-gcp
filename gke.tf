@@ -41,6 +41,7 @@ module "gke" {
   remove_default_node_pool    = true
   deletion_protection         = var.deletion_protection
   gateway_api_channel         = var.enable_global_access ? "CHANNEL_STANDARD" : null
+  dns_cache                   = var.dns_cache
 
   node_pools = concat([
     {
