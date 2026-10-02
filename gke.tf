@@ -40,7 +40,11 @@ module "gke" {
   default_max_pods_per_node   = 20
   remove_default_node_pool    = true
   deletion_protection         = var.deletion_protection
+<<<<<<< Updated upstream
   gateway_api_channel         = var.enable_global_access ? "CHANNEL_STANDARD" : null
+=======
+  dns_cache                   = var.dns_cache
+>>>>>>> Stashed changes
 
   node_pools = concat([
     {

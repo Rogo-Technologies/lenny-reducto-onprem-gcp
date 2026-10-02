@@ -216,8 +216,14 @@ variable "datadog_api_key" {
   default     = ""
 }
 
+<<<<<<< Updated upstream
 variable "enable_global_access" {
   description = "Enable global access on the internal load balancer, allowing clients from other regions to reach this service. When true, enables Gateway API on the cluster and uses Gateway/HTTPRoute instead of Ingress (which doesn't support global access for internal ALBs)."
   type        = bool
+=======
+variable "dns_cache" {
+  type        = bool
+  description = "Enable the GKE NodeLocal DNSCache addon. Turning it on for an existing cluster recreates every node."
+>>>>>>> Stashed changes
   default     = false
 }
