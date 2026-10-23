@@ -1,5 +1,12 @@
 locals {
   backend_config_name = "reducto-backendconfig"
+
+  reducto_sensitive_env = {
+    GCP_API_KEY                    = google_apikeys_key.vision.key_string
+    GCP_SECRET_ACCESS_KEY          = google_storage_hmac_key.s3_compatible_key.secret
+    GOOGLE_APPLICATION_CREDENTIALS = local.service_account_key
+    DATABASE_URL                   = local.database_url
+  }
 }
 
 resource "kubectl_manifest" "namespace" {
@@ -60,13 +67,20 @@ resource "helm_release" "reducto" {
     env:
       GCP_PROJECT_ID: ${var.project_id}
       GCP_REGION: ${var.vertex_ai_region}
-      GCP_API_KEY: ${google_apikeys_key.vision.key_string}
       GCP_ACCESS_KEY_ID: ${google_storage_hmac_key.s3_compatible_key.access_id}
-      GCP_SECRET_ACCESS_KEY: ${google_storage_hmac_key.s3_compatible_key.secret}
-      GOOGLE_APPLICATION_CREDENTIALS: ${local.service_account_key_json}
       BUCKET: ${google_storage_bucket.private_bucket.name}
-      DATABASE_URL: ${local.database_url}
     EOT
+  ]
+
+  set_sensitive = [
+    for name, value in local.reducto_sensitive_env : {
+      name = "env.${name}"
+      # The provider hands "name=value" to Helm's --set parser unescaped, so
+      # escape backslashes first, then commas (value separator) and "{" (a
+      # leading "{" is parsed as a list, e.g. the service account key JSON).
+      value = replace(replace(replace(value, "\\", "\\\\"), ",", "\\,"), "{", "\\{")
+      type  = "string"
+    }
   ]
 
   depends_on = [
