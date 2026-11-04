@@ -4,6 +4,11 @@ agents:
   image:
     tag: "7.84.6"
     digest: sha256:4aa71f1f624e36ed4d04568e4ad3f323af14426db07d2f9ed98869f6d0bdbbd3
+  containers:
+    agent:
+      env:
+        - name: AWS_CA_BUNDLE
+          value: /opt/datadog-agent/embedded/ssl/certs/cacert.pem
 
 clusterAgent:
   image:
