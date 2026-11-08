@@ -9,7 +9,7 @@ Live GCP checks on November 8 confirmed Workload Identity is already enabled on 
 1. Pin the caller to this reviewed commit. Set `enable_workload_identity=true` and leave `use_workload_identity_credentials=false`.
 2. Review the plan. It should add one service-account IAM member and one annotation manifest. It must not replace a node pool or rotate any credential. Lenny applies it.
 3. Verify the IAM binding and `iam.gke.io/gcp-service-account` annotation on the existing Kubernetes service account. Wait for IAM propagation. The annotation is applied with server-side apply and `apply_only=true`, so Terraform must never delete the Helm-owned service account.
-4. In a second reviewed apply, set `use_workload_identity_credentials=true`. This removes the injected JSON credential from Helm values. Verify in staging that both HTTP and worker processes use Application Default Credentials successfully.
+4. In a second reviewed apply, set `use_workload_identity_credentials=true`. This removes the injected JSON credential from Helm values and sets `GCP_SERVICE_ACCOUNT_EMAIL`. Verify in staging that both HTTP and worker processes use Application Default Credentials successfully.
 5. Run a real document through staging. Check Vertex AI audit entries for `reducto-sa-standard` and verify the calls no longer include `serviceAccountKeyName`. Verify successful calls as well as the absence of key-backed calls. An empty log alone is not proof.
 6. Hold prod unchanged until non-prod passes. Then repeat the same two applies and document test in prod.
 
@@ -25,6 +25,8 @@ Remove the non-prod project's key-creation exception only after its final Terraf
 
 - Can the pinned chart write to Google Cloud Storage with the pod's Google identity instead of its S3-compatible HMAC key? If not, document an owner, rotation policy, and narrow `storage.restrictAuthTypes` exception. Do not turn on that org constraint yet.
 - Can the Vision client use Application Default Credentials? If not, restrict the API key to Vision and the deployment's actual egress IPs after verifying them.
-- Confirm that the deployed application version falls back to ADC when GOOGLE_APPLICATION_CREDENTIALS is absent. The staged non-prod check is required before prod rollout.
+- Confirm that `GCP_SERVICE_ACCOUNT_EMAIL` also covers Reducto's Vertex AI and Cloud Storage calls, not only OCR. Reducto's docs describe it only under OCR provider configuration.
+
+The first non-prod switch on November 8 removed the key without setting `GCP_SERVICE_ACCOUNT_EMAIL`. Reducto then saw no Google credentials and sent OCR to AWS Textract, which failed with `NoCredentialsError`. Reducto detects Google credentials only from `GOOGLE_APPLICATION_CREDENTIALS` or `GCP_SERVICE_ACCOUNT_EMAIL` (https://docs.reducto.ai/onprem/ocr_options). The staged non-prod check is still required before prod rollout.
 
 Rollback before key retirement is setting `use_workload_identity_credentials=false` in a reviewed apply. The original key remains available. Do not restore unrelated IAM policies or modify tenant bucket bindings.

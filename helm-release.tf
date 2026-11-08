@@ -9,6 +9,13 @@ locals {
     },
     var.use_workload_identity_credentials ? {} : { GOOGLE_APPLICATION_CREDENTIALS = local.service_account_key },
   )
+
+  # Reducto only detects Google credentials from GOOGLE_APPLICATION_CREDENTIALS or
+  # GCP_SERVICE_ACCOUNT_EMAIL. Without either it falls back to AWS Textract and OCR fails.
+  # https://docs.reducto.ai/onprem/ocr_options
+  workload_identity_values = var.use_workload_identity_credentials ? [
+    yamlencode({ env = { GCP_SERVICE_ACCOUNT_EMAIL = google_service_account.service_account.email } })
+  ] : []
 }
 
 resource "kubectl_manifest" "namespace" {
@@ -53,7 +60,7 @@ resource "helm_release" "reducto" {
   version = var.reducto_helm_chart_version
   wait    = false
 
-  values = [
+  values = concat([
     templatefile("${path.module}/values/reducto.yaml.tftpl", {
       min_replica_count = var.reducto_worker_min_replica_count
       max_replica_count = var.reducto_worker_max_replica_count
@@ -79,7 +86,7 @@ resource "helm_release" "reducto" {
       GCP_ACCESS_KEY_ID: ${google_storage_hmac_key.s3_compatible_key.access_id}
       BUCKET: ${google_storage_bucket.private_bucket.name}
     EOT
-  ]
+  ], local.workload_identity_values)
 
   set_sensitive = [
     for name, value in local.reducto_sensitive_env : {

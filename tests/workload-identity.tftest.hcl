@@ -73,6 +73,10 @@ run "prepare_without_switching_credentials" {
     condition     = contains(nonsensitive(keys(local.reducto_sensitive_env)), "GOOGLE_APPLICATION_CREDENTIALS")
     error_message = "Preparation must keep the working credential path."
   }
+  assert {
+    condition     = length(local.workload_identity_values) == 0
+    error_message = "Preparation must not add Workload Identity settings to Reducto's Helm values."
+  }
 }
 
 run "switch_only_when_explicitly_requested" {
@@ -92,6 +96,10 @@ run "switch_only_when_explicitly_requested" {
   assert {
     condition     = contains(nonsensitive(keys(local.reducto_sensitive_env)), "GCP_SECRET_ACCESS_KEY") && contains(nonsensitive(keys(local.reducto_sensitive_env)), "GCP_API_KEY")
     error_message = "The vendor's HMAC and Vision credentials are separate and must remain unchanged."
+  }
+  assert {
+    condition     = contains(helm_release.reducto.values, yamlencode({ env = { GCP_SERVICE_ACCOUNT_EMAIL = "reducto-sa-standard@shared-services-non-prod-d3c2.iam.gserviceaccount.com" } }))
+    error_message = "Without the key, Reducto needs GCP_SERVICE_ACCOUNT_EMAIL to detect Google credentials, or OCR falls back to AWS Textract."
   }
 }
 
