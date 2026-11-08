@@ -1,12 +1,14 @@
 locals {
   backend_config_name = "reducto-backendconfig"
 
-  reducto_sensitive_env = {
-    GCP_API_KEY                    = google_apikeys_key.vision.key_string
-    GCP_SECRET_ACCESS_KEY          = google_storage_hmac_key.s3_compatible_key.secret
-    GOOGLE_APPLICATION_CREDENTIALS = local.service_account_key
-    DATABASE_URL                   = local.database_url
-  }
+  reducto_sensitive_env = merge(
+    {
+      GCP_API_KEY           = google_apikeys_key.vision.key_string
+      GCP_SECRET_ACCESS_KEY = google_storage_hmac_key.s3_compatible_key.secret
+      DATABASE_URL          = local.database_url
+    },
+    var.use_workload_identity_credentials ? {} : { GOOGLE_APPLICATION_CREDENTIALS = local.service_account_key },
+  )
 }
 
 resource "kubectl_manifest" "namespace" {
@@ -33,6 +35,13 @@ resource "kubectl_manifest" "backend_config" {
 }
 
 resource "helm_release" "reducto" {
+  lifecycle {
+    precondition {
+      condition     = !var.use_workload_identity_credentials || var.enable_workload_identity
+      error_message = "Prepare Workload Identity in an earlier apply before switching Reducto credentials."
+    }
+  }
+
   namespace        = kubectl_manifest.namespace.name
   name             = "reducto"
   create_namespace = false
