@@ -1,15 +1,6 @@
 mock_provider "google" {
-  mock_data "google_compute_zones" {
-    defaults = { names = ["us-central1-a", "us-central1-b", "us-central1-c"] }
-  }
   mock_resource "google_service_account_key" {
     defaults = { private_key = "e30=" }
-  }
-  mock_resource "google_container_cluster" {
-    defaults = {
-      endpoint    = "127.0.0.1"
-      master_auth = { cluster_ca_certificate = "dGVzdA==" }
-    }
   }
   mock_resource "google_service_account" {
     defaults = {
@@ -33,15 +24,6 @@ variables {
   reducto_service_account_name = "reducto-sa-standard"
 }
 
-override_resource {
-  target = module.gke.google_container_cluster.primary
-  values = {
-    endpoint                       = "127.0.0.1"
-    master_auth                    = { cluster_ca_certificate = "dGVzdA==" }
-    control_plane_endpoints_config = { dns_endpoint_config = { endpoint = "test.gke.goog" } }
-  }
-}
-
 override_module {
   target = module.network
   outputs = {
@@ -58,6 +40,10 @@ override_module {
 
 run "existing_credentials_unchanged_by_default" {
   command = plan
+  module { source = "./tests/fixtures/without-gke" }
+  plan_options {
+    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto]
+  }
   assert {
     condition     = length(google_service_account_iam_member.workload_identity_user) == 0 && length(kubectl_manifest.workload_identity_annotation) == 0
     error_message = "Default settings must not change a running deployment's identity."
@@ -70,6 +56,10 @@ run "existing_credentials_unchanged_by_default" {
 
 run "prepare_without_switching_credentials" {
   command = plan
+  module { source = "./tests/fixtures/without-gke" }
+  plan_options {
+    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto]
+  }
   variables { enable_workload_identity = true }
   assert {
     condition     = google_service_account_iam_member.workload_identity_user[0].member == "serviceAccount:shared-services-non-prod-d3c2.svc.id.goog[reducto/reducto-reducto]"
@@ -87,6 +77,10 @@ run "prepare_without_switching_credentials" {
 
 run "switch_only_when_explicitly_requested" {
   command = plan
+  module { source = "./tests/fixtures/without-gke" }
+  plan_options {
+    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto]
+  }
   variables {
     enable_workload_identity          = true
     use_workload_identity_credentials = true
@@ -103,6 +97,10 @@ run "switch_only_when_explicitly_requested" {
 
 run "reject_switch_without_preparation" {
   command = plan
+  module { source = "./tests/fixtures/without-gke" }
+  plan_options {
+    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto]
+  }
   variables { use_workload_identity_credentials = true }
   expect_failures = [helm_release.reducto]
 }

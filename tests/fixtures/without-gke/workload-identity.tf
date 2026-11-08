@@ -1,0 +1,1 @@
+../../../workload-identity.tf
