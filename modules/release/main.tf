@@ -71,6 +71,13 @@ resource "google_apikeys_key" "vision" {
   name         = "${var.release_name}-${random_string.api_key_name_suffix.result}"
   display_name = "Reducto Cloud Vision Key (${var.release_name})"
   project      = var.project_id
+
+  # The key leaves Terraform as a pod env var; limit what it is good for.
+  restrictions {
+    api_targets {
+      service = "vision.googleapis.com"
+    }
+  }
 }
 
 resource "kubectl_manifest" "namespace" {
