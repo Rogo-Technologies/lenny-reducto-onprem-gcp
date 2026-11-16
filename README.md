@@ -86,3 +86,36 @@ Service Networking Connection
 │ Error: Unable to remove Service Networking Connection, err: Error waiting for Delete Service Networking Connection: Error code 9, message: Failed to delete connection; Producer services (e.g. CloudSQL, Cloud Memstore, etc.) are still using this connection.
 ```
 </details>
+## Tenant releases (`modules/release`)
+
+The root module deploys one shared Reducto release whose storage identity can
+reach every bucket a request names. `modules/release` deploys an extra release
+on the same cluster for one tenant: its own namespace, a Kubernetes service
+account bound through Workload Identity to a Google service account the tenant
+owns, the tenant bucket as the only `BUCKET`, its own database, optional API-key
+authentication, and its own Gateway API internal load balancer for a Private
+Service Connect attachment. No HMAC key is created.
+
+```hcl
+module "tenant_release" {
+  source = "git::https://github.com/Rogo-Technologies/lenny-reducto-onprem-gcp.git//modules/release?ref=<sha>"
+  providers = { helm = helm.reducto, kubectl = kubectl.reducto }
+
+  project_id                 = var.cluster_project_id
+  namespace                  = "reducto-acme"
+  release_name               = "reducto-acme"
+  gcp_service_account_email  = "reducto-tenant@acme-project.iam.gserviceaccount.com"
+  gcp_project_id             = "acme-project"
+  bucket_name                = "reducto-acme-us-central1-prod"
+  database_url               = "postgresql://..."   # a database on module.pg (outputs db_instance_name / db_private_ip)
+  api_key                    = random_password.acme.result
+  reducto_helm_chart_version = "1.12.20-1"
+  reducto_helm_repo_username = var.reducto_helm_repo_username
+  reducto_helm_repo_password = var.reducto_helm_repo_password
+}
+```
+
+Grant `roles/iam.workloadIdentityUser` on the Google service account to
+`module.tenant_release.workload_identity_member`, and `roles/storage.objectAdmin`
+on the tenant bucket to the Google service account. The root module's
+`reducto-sa` must no longer hold a role on that bucket.

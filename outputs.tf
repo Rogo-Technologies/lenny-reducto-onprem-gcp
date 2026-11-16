@@ -41,3 +41,18 @@ output "vpc_network_name" {
   description = "The name of the VPC network created for Reducto"
   value       = module.network.network_name
 }
+
+output "db_instance_name" {
+  description = "Cloud SQL instance name; tenant releases (modules/release) create their own database on it"
+  value       = module.pg.instance_name
+}
+
+output "db_private_ip" {
+  description = "Private IP of the Cloud SQL instance, for tenant release DATABASE_URLs"
+  value       = module.pg.private_ip_address
+}
+
+output "cluster_name" {
+  description = "GKE cluster name, for callers that configure their own helm/kubectl providers for modules/release"
+  value       = var.cluster_name
+}
