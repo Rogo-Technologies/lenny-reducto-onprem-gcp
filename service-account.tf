@@ -21,9 +21,11 @@ resource "google_storage_hmac_key" "s3_compatible_key" {
 }
 
 resource "google_service_account_key" "service_account_key" {
+  count = var.use_workload_identity_credentials ? 0 : 1
+
   service_account_id = google_service_account.service_account.name
 }
 
 locals {
-  service_account_key = base64decode(google_service_account_key.service_account_key.private_key)
+  service_account_key = var.use_workload_identity_credentials ? null : base64decode(google_service_account_key.service_account_key[0].private_key)
 }
