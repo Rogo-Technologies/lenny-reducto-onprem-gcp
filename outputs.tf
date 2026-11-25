@@ -32,7 +32,7 @@ output "database_url" {
 }
 
 output "service_account_key" {
-  description = "The key for the Reducto service account"
+  description = "The key for the Reducto service account, or null when pods use Workload Identity"
   value       = local.service_account_key
   sensitive   = true
 }

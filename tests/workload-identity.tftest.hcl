@@ -42,7 +42,7 @@ run "existing_credentials_unchanged_by_default" {
   command = plan
   module { source = "./tests/fixtures/without-gke" }
   plan_options {
-    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto]
+    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto, google_service_account_key.service_account_key]
   }
   assert {
     condition     = length(google_service_account_iam_member.workload_identity_user) == 0 && length(kubectl_manifest.workload_identity_annotation) == 0
@@ -52,13 +52,17 @@ run "existing_credentials_unchanged_by_default" {
     condition     = contains(nonsensitive(keys(local.reducto_sensitive_env)), "GOOGLE_APPLICATION_CREDENTIALS")
     error_message = "The default must keep injecting the existing key."
   }
+  assert {
+    condition     = length(google_service_account_key.service_account_key) == 1
+    error_message = "The default must keep the key the pods still use."
+  }
 }
 
 run "prepare_without_switching_credentials" {
   command = plan
   module { source = "./tests/fixtures/without-gke" }
   plan_options {
-    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto]
+    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto, google_service_account_key.service_account_key]
   }
   variables { enable_workload_identity = true }
   assert {
@@ -74,6 +78,10 @@ run "prepare_without_switching_credentials" {
     error_message = "Preparation must keep the working credential path."
   }
   assert {
+    condition     = length(google_service_account_key.service_account_key) == 1
+    error_message = "Preparation must keep the key until the switch."
+  }
+  assert {
     condition     = length(local.workload_identity_values) == 0
     error_message = "Preparation must not add Workload Identity settings to Reducto's Helm values."
   }
@@ -83,7 +91,7 @@ run "switch_only_when_explicitly_requested" {
   command = plan
   module { source = "./tests/fixtures/without-gke" }
   plan_options {
-    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto]
+    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto, google_service_account_key.service_account_key]
   }
   variables {
     enable_workload_identity          = true
@@ -92,6 +100,10 @@ run "switch_only_when_explicitly_requested" {
   assert {
     condition     = !contains(nonsensitive(keys(local.reducto_sensitive_env)), "GOOGLE_APPLICATION_CREDENTIALS")
     error_message = "The opt-in switch must remove the injected JSON credential."
+  }
+  assert {
+    condition     = length(google_service_account_key.service_account_key) == 0
+    error_message = "Once pods use Workload Identity, the module must not keep a JSON key."
   }
   assert {
     condition     = contains(nonsensitive(keys(local.reducto_sensitive_env)), "GCP_SECRET_ACCESS_KEY") && contains(nonsensitive(keys(local.reducto_sensitive_env)), "GCP_API_KEY")
@@ -107,7 +119,7 @@ run "reject_switch_without_preparation" {
   command = plan
   module { source = "./tests/fixtures/without-gke" }
   plan_options {
-    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto]
+    target = [google_service_account_iam_member.workload_identity_user, kubectl_manifest.workload_identity_annotation, helm_release.reducto, google_service_account_key.service_account_key]
   }
   variables { use_workload_identity_credentials = true }
   expect_failures = [helm_release.reducto]
