@@ -48,7 +48,8 @@ locals {
   backend_config_name             = "${var.release_name}-backendconfig"
   workload_identity_member        = "serviceAccount:${var.project_id}.svc.id.goog[${var.namespace}/${local.kubernetes_service_account_name}]"
 
-  auth_enabled = nonsensitive(var.api_key != "")
+  auth_enabled     = nonsensitive(var.api_key != "")
+  auth_secret_name = "${var.release_name}-api-keys"
 
   sensitive_env = merge(
     {
@@ -159,11 +160,15 @@ resource "helm_release" "reducto" {
     ],
     local.auth_enabled ? [
       yamlencode({
+        # The chart mounts this Secret at its default path and checks every
+        # request's bearer token against the key file. The Secret is created
+        # below, not by the chart: chart 1.12.20-1's values schema rejects
+        # `auth.secretPath.apiKey`, and keeping the key out of Helm values keeps
+        # it out of the release manifest as well.
         auth = {
           secretPath = {
-            enabled      = true
-            createSecret = true
-            secretName   = "${var.release_name}-api-keys"
+            enabled    = true
+            secretName = local.auth_secret_name
           }
         }
       })
@@ -171,14 +176,11 @@ resource "helm_release" "reducto" {
   )
 
   set_sensitive = [
-    for name, value in merge(
-      local.sensitive_env,
-      local.auth_enabled ? { "__auth" = var.api_key } : {},
-      ) : {
+    for name, value in local.sensitive_env : {
       # The provider hands "name=value" to Helm's --set parser unescaped, so
       # escape backslashes first, then commas (value separator) and "{" (a
       # leading "{" is parsed as a list).
-      name  = name == "__auth" ? "auth.secretPath.apiKey" : "env.${name}"
+      name  = "env.${name}"
       value = replace(replace(replace(value, "\\", "\\\\"), ",", "\\,"), "{", "\\{")
       type  = "string"
     }
@@ -187,7 +189,32 @@ resource "helm_release" "reducto" {
   depends_on = [
     kubectl_manifest.namespace,
     kubectl_manifest.backend_config,
+    kubectl_manifest.auth_secret,
   ]
+}
+
+# The API-key file the chart mounts when auth is on. One key per release; the
+# file holds the key and nothing else (no trailing newline), which is the form
+# the chart's own createSecret path writes.
+resource "kubectl_manifest" "auth_secret" {
+  count = local.auth_enabled ? 1 : 0
+
+  sensitive_fields = ["stringData"]
+
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Secret"
+    type       = "Opaque"
+    metadata = {
+      namespace = var.namespace
+      name      = local.auth_secret_name
+    }
+    stringData = {
+      secret = var.api_key
+    }
+  })
+
+  depends_on = [kubectl_manifest.namespace]
 }
 
 # The chart creates the Kubernetes service account; Workload Identity needs the
